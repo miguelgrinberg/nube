@@ -1,0 +1,47 @@
+function nube_python {
+    case "$1" in
+        install)
+            apt-get -y install python python-dev python-virtualenv
+            ;;
+        detect)
+            APP=$2
+            APP_ROOT=$3
+            if [ -f $APP_ROOT/requirements.txt ]; then
+                echo yes
+            fi
+            ;;
+        build)
+            APP=$2
+            APP_ROOT=$3
+            virtualenv $APP_ROOT/venv
+            $APP_ROOT/venv/bin/pip install -r $APP_ROOT/requirements.txt
+            ;;
+        up)
+            APP=$2
+            APP_ROOT=$3
+            if [ -z "$SERVER_NAME" ]; then
+                SERVER_NAME=_
+            fi
+            cat << EOF > /etc/nginx/sites-available/$APP
+server {
+    listen 80;
+    server_name $SERVER_NAME;
+    access_log /var/log/nginx/$APP.access.log;
+    error_log /var/log/nginx/$APP.error.log;
+    location /static/ {
+        alias $APP_ROOT/static/;
+        expires 30d;
+    }
+    location / {
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:$PORT;
+    }
+}
+EOF
+            ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
+            /etc/init.d/nginx reload
+            ;;
+        down)
+            ;;
+    esac
+}

@@ -1,0 +1,382 @@
+#!/bin/bash
+set -e
+
+<<<<<<< HEAD
+VHOST_ROOT=/var/www
+
+usage() {
+    echo "Usage: sudo nube install      Install nube"
+    echo "       nube upload-key        Register public SSH key (key is read from stdin)"
+    echo "       nube create APPNAME    Create application APPNAME"
+    echo "       nube destroy APPNAME   Delete application APPNAME"
+    echo "       nube up APPNAME        Start application APPNAME"
+    echo "       nube down APPNAME      Stop application APPNAME"
+}
+
+get_random_port() {
+    port=$(($(od -An -N2 -i /dev/urandom)%64512+1024))
+    while true
+    do
+        (echo >/dev/tcp/localhost/$port) &>/dev/null && port=$(($(od -An -N2 -i /dev/urandom)%64512+1024)) || break
+=======
+DIRNAME=`dirname $0`
+VHOST_ROOT=/var/www
+
+usage() {
+    echo "Usage: sudo nube install          Install nube"
+    echo "       nube upload-key            Register public SSH key (key is read from stdin)"
+    echo "       nube create APPNAME        Create application APPNAME"
+    echo "       nube destroy APPNAME       Delete application APPNAME"
+    echo "       nube set APPNAME VAR=VALUE Add an environment variable to APPNAME"
+    echo "       nube unset APPNAME VAR     Remove an environment variable from APPNAME"
+    echo "       nube up APPNAME            Start application APPNAME"
+    echo "       nube down APPNAME          Stop application APPNAME"
+}
+
+get_random_port() {
+    port=$(($(od -An -N2 -i /dev/urandom)%62*1000+2000))
+    while true
+    do
+        (echo >/dev/tcp/localhost/$port) &>/dev/null && port=$(($(od -An -N2 -i /dev/urandom)%62*1000+2000)) || break
+>>>>>>> 15212dd... initial commit
+    done
+    echo $port
+}
+
+<<<<<<< HEAD
+nginx_config() {
+    if [ ! -z "$SERVER_NAME" ];
+    then
+        NGINX_SERVER_NAME="server_name $SERVER_NAME;"
+    fi
+    if [ ! -z "$INDEX" ];
+    then
+        NGINX_INDEX="index $INDEX;"
+    else
+        NGINX_INDEX="index index.html index.htm;"
+    fi
+    if [ ! -z "$STATIC_LOCATION" ];
+    then
+        NGINX_STATIC_LOCATION=$STATIC_LOCATION
+    else
+        NGINX_STATIC_LOCATION=/
+    fi
+    if [ ! -z "$STATIC_REWRITE" ];
+    then
+        NGINX_STATIC_REWRITE="rewrite $STATIC_REWRITE;"
+    fi
+    if [ ! -z "$STATIC_PATH" ];
+    then
+        NGINX_STATIC_PATH="try_files"
+        for p in $STATIC_PATH
+        do
+            NGINX_STATIC_PATH+=" $p/\$uri"
+        done
+        NGINX_STATIC_PATH+=" =404;"
+    else
+        NGINX_STATIC_PATH="try_files \$uri \$uri/ =404;"
+    fi
+}
+
+conf_static() {
+    NGINX_CONFIG=$1
+    APP_ROOT=$2
+    
+    nginx_config
+    cat << EOF > $NGINX_CONFIG
+server {
+    listen 80;
+    $NGINX_INDEX
+    $NGINX_SERVER_NAME
+    location $NGINX_STATIC_LOCATION {
+        root $APP_ROOT;
+        $NGINX_STATIC_REWRITE
+        $NGINX_STATIC_PATH
+    }
+    error_page 404 ${NGINX_STATIC_LOCATION}/404.html;
+    error_page 500 502 503 504 ${NGINX_STATIC_LOCATION}/50x.html;
+    location ~ /\. {
+        deny all;
+    }
+    location ~ /Nubefile {
+        deny all;
+    }
+}
+EOF
+}
+
+conf_proxy() {
+    echo not implemented
+}
+
+conf_fastcgi() {
+    echo not implemented
+}
+
+conf_uwsgi() {
+    echo not implemented
+}
+
+conf_php() {
+    NGINX_CONFIG=$1
+    APP_ROOT=$2
+    
+    nginx_config
+    cat << EOF > $NGINX_CONFIG
+server {
+    listen 80;
+    $NGINX_INDEX
+    $NGINX_SERVER_NAME
+    location $NGINX_STATIC_LOCATION {
+        root $APP_ROOT;
+        $NGINX_STATIC_REWRITE
+        $NGINX_STATIC_PATH
+    }
+    location ~ \.php/ {
+        root $APP_ROOT;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param PATH_INFO \$fastcgi_path_info;
+        fastcgi_param PATH_TRANSLATED \$document_root$fastcgi_path_info;
+    }
+    error_page 404 ${NGINX_STATIC_LOCATION}/404.html;
+    error_page 500 502 503 504 ${NGINX_STATIC_LOCATION}/50x.html;
+    location ~ /\. {
+        deny all;
+    }
+    location ~ /Nubefile {
+        deny all;
+    }
+}
+EOF
+}
+
+case "$1" in
+  install)
+    echo "-----> Installing dependencies ..."
+    APACHE=$(pgrep apache2) || true
+    if [ ! -z "$APACHE" ]; then
+        service apache2 stop
+        update-rc.d -f apache2 remove
+    fi
+
+    apt-get update
+
+    # build stuff
+    sudo apt-get -y install build-essential
+     
+    # git 
+    apt-get -y install git
+
+    # nginx
+    apt-get -y install nginx
+    rm -f /etc/nginx/sites-enabled/default
+    /etc/init.d/nginx restart
+
+    # python utilities
+    apt-get -y install python-pip python-dev
+    
+    # honcho (Procfile handler)
+    pip install honcho 
+    
+    # install plugins
+    shift
+    PLUGINS=
+    for PLUGIN in $@; do
+        echo "-----> Installing $PLUGIN plugin ..."
+        if [ ! -f $DIRNAME/plugins/$PLUGIN ]; then
+            echo Plugin $PLUGIN not found, skipping > /dev/stderr
+        else
+            source $DIRNAME/plugins/$PLUGIN
+            nube_$PLUGIN install
+            PLUGINS="$PLUGINS $PLUGIN"
+        fi
+    done
+    
+    echo "-----> Creating a root directory for virtual hosts ..."
+    mkdir -p $VHOST_ROOT
+
+    echo "-----> Creating a \"nube\" user ..."
+    useradd -m nube || true
+    mkdir -p /home/nube/.ssh
+    touch /home/nube/.ssh/authorized_keys
+
+    echo "-----> Creating a \"git\" user ..."
+    wget -q https://raw.github.com/progrium/gitreceive/master/gitreceive
+    chmod +x gitreceive
+    mv gitreceive /usr/local/bin
+    gitreceive init > /dev/null
+    cat << EOF > /home/git/receiver
+#!/bin/bash
+sudo-nube __receive \$(basename \$1 .git) \$2
+EOF
+    chmod +x /home/git/receiver
+
+    echo "-----> Installing \"nube\" ..."
+    cat << EOF > sudo-nube.c
+#include <unistd.h>
+int main(int argc, char* argv[]) { setuid(0); return execvp("nube", argv); }
+EOF
+    gcc sudo-nube.c -o /usr/local/bin/sudo-nube
+    rm sudo-nube.c
+    chown root:root /usr/local/bin/sudo-nube
+    chmod 4755 /usr/local/bin/sudo-nube
+    cp $0 /usr/local/bin/nube
+    mkdir -p /usr/local/share/nube/plugins
+    for PLUGIN in $PLUGINS; do
+        cp $DIRNAME/plugins/$PLUGIN /usr/local/share/nube/plugins
+    done
+    echo "-----> Success!"
+    echo "       Please upload your public key:"
+    echo "         cat ~/.ssh/id_rsa.pub | ssh $USER@$HOSTNAME \"nube upload-key\""
+    ;;
+
+  upload-key)
+    echo "-----> Installing public key ..."
+    sudo-nube __upload-key
+    echo "-----> Success!"
+    echo "       To issue commands without a password:"
+    echo "         ssh nube@$HOSTNAME \"nube <cmd> <arg> ...\""
+    ;;
+
+  create)
+    APP=$2
+    echo "-----> Creating APP ..."
+    sudo-nube __create $APP
+    echo "-----> Success!"
+    echo "       \"$APP\" is now ready. To push:"
+    echo "         git remote add nube git@$HOSTNAME:$APP.git"
+    echo "         git push nube master"
+    ;;
+
+  destroy)
+    APP=$2
+    echo "-----> Destroying $APP ..."
+    sudo-nube __destroy $APP
+    echo "-----> Success!"
+    echo "       \"$APP\" has been removed from the system."
+    ;;
+
+  set)
+    APP=$2
+    VAR=$3
+    echo "-----> Setting $VAR in $APP ..."
+    sudo-nube __set $APP "$VAR"
+    echo "-----> Success!"
+    ;;
+
+  unset)
+    APP=$2
+    VAR=$3
+    echo "-----> Removing $VAR from $APP ..."
+    sudo-nube __unset $APP "$VAR"
+    echo "-----> Success!"
+    ;;
+    
+  # private options from here on, for internal use only!
+
+  __upload-key)
+    KEY=$(cat)
+    echo $KEY | gitreceive upload-key git-user > /dev/null
+    echo $KEY > /home/nube/.ssh/authorized_keys
+    ;;
+
+  __create)
+    APP=$2
+    useradd $APP
+    mkdir -p $VHOST_ROOT/$APP/data
+    chown $APP:$APP $VHOST_ROOT/$APP/data
+    ;;
+
+  __destroy)
+    APP=$2
+    $0 __down $APP
+    #TODO: call down on modules
+    rm -rf $VHOST_ROOT/$APP
+    userdel $APP
+    ;;
+
+  __set)
+    APP=$2
+    VAR=$3
+    if [ -z "$VAR" ]; then
+        cat $VHOST_ROOT/$APP/.env
+    else
+        echo $VAR >> $VHOST_ROOT/$APP/.env
+    fi
+    ;;
+    
+  __unset)
+    APP=$2
+    VAR=$3
+    mv $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/.tmp.env
+    grep -v $VAR= $VHOST_ROOT/$APP/.tmp.env > $VHOST_ROOT/$APP/.env
+    rm $VHOST_ROOT/$APP/.tmp.env
+    ;;
+    
+  __receive)
+    APP=$2
+    REVISION=rev-$3
+    if [ ! -d $VHOST_ROOT/$APP ]; then
+        echo Error: application $APP does not exist. > /dev/stderr
+        exit 1
+    fi
+    LS=$(ls -d $VHOST_ROOT/$APP/rev-* 2>/dev/null) || true
+    if [ ! -z "$LS" ]; then
+        OLD_REVISION=$(basename $LS) || true
+    fi
+    echo "-----> Installing $APP ..."
+    mkdir -p $VHOST_ROOT/$APP/$REVISION
+    cat | tar -x -C $VHOST_ROOT/$APP/$REVISION || $0 __revert $APP $REVISION $OLD_REVISION
+    chown -R $APP:$APP $VHOST_ROOT/$APP/$REVISION
+    echo "-----> Detecting type of $APP ..."
+    TYPE=
+    for FILE in /usr/local/share/nube/plugins/*; do
+        source $FILE
+        PLUGIN=$(basename $FILE)
+        D=`nube_$PLUGIN detect $APP $VHOST_ROOT/$APP/$REVISION`
+        if [ "$D" == "yes" ]; then
+            TYPE=$PLUGIN
+            break
+        else
+            if [ "$D" == "default" ]; then
+                DEFAULT_TYPE=$PLUGIN
+            fi
+        fi
+    done
+    if [ -z "$TYPE" ]; then
+        TYPE=$DEFAULT_TYPE
+    fi
+    echo Type is $TYPE
+    echo "-----> Building $APP ..."
+    nube_$TYPE build $APP $VHOST_ROOT/$APP/$REVISION
+    echo "-----> Launching $APP ..."
+    if [ -f $VHOST_ROOT/$APP/.env ]; then
+        source $VHOST_ROOT/$APP/.env
+    fi
+    PORT=$(get_random_port)
+    honcho -f $VHOST_ROOT/$APP/$REVISION/Procfile -d $VHOST_ROOT/$APP/$REVISION export -a $APP -u $APP -p $PORT upstart /etc/init
+    start $APP
+    nube_$TYPE up $APP $VHOST_ROOT/$APP/$REVISION
+    if [ ! -z "$OLD_REVISION" ]; then
+        rm -rf $VHOST_ROOT/$APP/$OLD_REVISION
+    fi
+    echo "-----> $APP is now online!"
+    echo "         http://$APP.$HOSTNAME"
+    ;;
+
+  --help)
+    usage
+    ;;
+
+  -h)
+    usage
+    ;;
+
+  *)
+    echo nube: \"$1\" is an invalid command. > /dev/stderr
+    usage
+    exit 1
+    ;;
+esac

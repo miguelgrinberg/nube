@@ -1,0 +1,42 @@
+function nube_static {
+    case "$1" in
+        install)
+            ;;
+        detect)
+            echo default
+            ;;
+        build)
+            ;;
+        up)
+            APP=$2
+            APP_ROOT=$3
+            if [ -z "$SERVER_NAME" ]; then
+                SERVER_NAME=_
+            fi
+            cat << EOF > /etc/nginx/sites-available/$APP
+server {
+    listen 80;
+    index index.html index.htm;
+    server_name $SERVER_NAME;
+    access_log /var/log/nginx/$APP.access.log;
+    error_log /var/log/nginx/$APP.error.log;
+    location / {
+        root $APP_ROOT;
+    }
+    error_page 404 $APP_ROOT/404.html;
+    error_page 500 502 503 504 $APP_ROOT/50x.html;
+    location ~ /\. {
+        deny all;
+    }
+    location ~ /Procfile {
+        deny all;
+    }
+}
+EOF
+            ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
+            /etc/init.d/nginx reload
+            ;;
+        down)
+            ;;
+    esac
+}
