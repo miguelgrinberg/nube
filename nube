@@ -1,24 +1,6 @@
 #!/bin/bash
 set -e
 
-<<<<<<< HEAD
-VHOST_ROOT=/var/www
-
-usage() {
-    echo "Usage: sudo nube install      Install nube"
-    echo "       nube upload-key        Register public SSH key (key is read from stdin)"
-    echo "       nube create APPNAME    Create application APPNAME"
-    echo "       nube destroy APPNAME   Delete application APPNAME"
-    echo "       nube up APPNAME        Start application APPNAME"
-    echo "       nube down APPNAME      Stop application APPNAME"
-}
-
-get_random_port() {
-    port=$(($(od -An -N2 -i /dev/urandom)%64512+1024))
-    while true
-    do
-        (echo >/dev/tcp/localhost/$port) &>/dev/null && port=$(($(od -An -N2 -i /dev/urandom)%64512+1024)) || break
-=======
 DIRNAME=`dirname $0`
 VHOST_ROOT=/var/www
 
@@ -38,118 +20,8 @@ get_random_port() {
     while true
     do
         (echo >/dev/tcp/localhost/$port) &>/dev/null && port=$(($(od -An -N2 -i /dev/urandom)%62*1000+2000)) || break
->>>>>>> 15212dd... initial commit
     done
     echo $port
-}
-
-<<<<<<< HEAD
-nginx_config() {
-    if [ ! -z "$SERVER_NAME" ];
-    then
-        NGINX_SERVER_NAME="server_name $SERVER_NAME;"
-    fi
-    if [ ! -z "$INDEX" ];
-    then
-        NGINX_INDEX="index $INDEX;"
-    else
-        NGINX_INDEX="index index.html index.htm;"
-    fi
-    if [ ! -z "$STATIC_LOCATION" ];
-    then
-        NGINX_STATIC_LOCATION=$STATIC_LOCATION
-    else
-        NGINX_STATIC_LOCATION=/
-    fi
-    if [ ! -z "$STATIC_REWRITE" ];
-    then
-        NGINX_STATIC_REWRITE="rewrite $STATIC_REWRITE;"
-    fi
-    if [ ! -z "$STATIC_PATH" ];
-    then
-        NGINX_STATIC_PATH="try_files"
-        for p in $STATIC_PATH
-        do
-            NGINX_STATIC_PATH+=" $p/\$uri"
-        done
-        NGINX_STATIC_PATH+=" =404;"
-    else
-        NGINX_STATIC_PATH="try_files \$uri \$uri/ =404;"
-    fi
-}
-
-conf_static() {
-    NGINX_CONFIG=$1
-    APP_ROOT=$2
-    
-    nginx_config
-    cat << EOF > $NGINX_CONFIG
-server {
-    listen 80;
-    $NGINX_INDEX
-    $NGINX_SERVER_NAME
-    location $NGINX_STATIC_LOCATION {
-        root $APP_ROOT;
-        $NGINX_STATIC_REWRITE
-        $NGINX_STATIC_PATH
-    }
-    error_page 404 ${NGINX_STATIC_LOCATION}/404.html;
-    error_page 500 502 503 504 ${NGINX_STATIC_LOCATION}/50x.html;
-    location ~ /\. {
-        deny all;
-    }
-    location ~ /Nubefile {
-        deny all;
-    }
-}
-EOF
-}
-
-conf_proxy() {
-    echo not implemented
-}
-
-conf_fastcgi() {
-    echo not implemented
-}
-
-conf_uwsgi() {
-    echo not implemented
-}
-
-conf_php() {
-    NGINX_CONFIG=$1
-    APP_ROOT=$2
-    
-    nginx_config
-    cat << EOF > $NGINX_CONFIG
-server {
-    listen 80;
-    $NGINX_INDEX
-    $NGINX_SERVER_NAME
-    location $NGINX_STATIC_LOCATION {
-        root $APP_ROOT;
-        $NGINX_STATIC_REWRITE
-        $NGINX_STATIC_PATH
-    }
-    location ~ \.php/ {
-        root $APP_ROOT;
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass 127.0.0.1:9000;
-        include fastcgi_params;
-        fastcgi_param PATH_INFO \$fastcgi_path_info;
-        fastcgi_param PATH_TRANSLATED \$document_root$fastcgi_path_info;
-    }
-    error_page 404 ${NGINX_STATIC_LOCATION}/404.html;
-    error_page 500 502 503 504 ${NGINX_STATIC_LOCATION}/50x.html;
-    location ~ /\. {
-        deny all;
-    }
-    location ~ /Nubefile {
-        deny all;
-    }
-}
-EOF
 }
 
 case "$1" in
@@ -193,7 +65,8 @@ case "$1" in
             PLUGINS="$PLUGINS $PLUGIN"
         fi
     done
-    
+    PLUGINS="$PLUGINS static"
+
     echo "-----> Creating a root directory for virtual hosts ..."
     mkdir -p $VHOST_ROOT
 
@@ -291,7 +164,14 @@ EOF
 
   __destroy)
     APP=$2
-    $0 __down $APP
+    rm /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
+    /etc/init.d/nginx reload
+    stop $APP || true
+    if [ -d $VHOST_ROOT/$APP/upstart ]; then
+        for FILE in $VHOST_ROOT/$APP/upstart/*; do
+            rm /etc/init/$(basename $FILE)
+        done
+    fi
     #TODO: call down on modules
     rm -rf $VHOST_ROOT/$APP
     userdel $APP
@@ -322,13 +202,20 @@ EOF
         echo Error: application $APP does not exist. > /dev/stderr
         exit 1
     fi
-    LS=$(ls -d $VHOST_ROOT/$APP/rev-* 2>/dev/null) || true
-    if [ ! -z "$LS" ]; then
-        OLD_REVISION=$(basename $LS) || true
-    fi
+    OLD_REVISION=
+    for FILE in $VHOST_ROOT/$APP/rev-*; do
+        if [ -d $FILE ]; then
+            REV=$(basename $FILE)
+            if [ "$REVISION" != "$REV" ]; then
+                OLD_REVISION=$REV
+                break
+            fi
+        fi
+    done
     echo "-----> Installing $APP ..."
+    rm -rf $VHOST_ROOT/$APP/$REVISION
     mkdir -p $VHOST_ROOT/$APP/$REVISION
-    cat | tar -x -C $VHOST_ROOT/$APP/$REVISION || $0 __revert $APP $REVISION $OLD_REVISION
+    cat | tar -x -C $VHOST_ROOT/$APP/$REVISION
     chown -R $APP:$APP $VHOST_ROOT/$APP/$REVISION
     echo "-----> Detecting type of $APP ..."
     TYPE=
@@ -352,18 +239,30 @@ EOF
     echo "-----> Building $APP ..."
     nube_$TYPE build $APP $VHOST_ROOT/$APP/$REVISION
     echo "-----> Launching $APP ..."
+    stop $APP || true
+    if [ -d $VHOST_ROOT/$APP/upstart ]; then
+        for FILE in $VHOST_ROOT/$APP/upstart/*; do
+            rm /etc/init/$(basename $FILE)
+        done
+    fi
     if [ -f $VHOST_ROOT/$APP/.env ]; then
         source $VHOST_ROOT/$APP/.env
     fi
-    PORT=$(get_random_port)
-    honcho -f $VHOST_ROOT/$APP/$REVISION/Procfile -d $VHOST_ROOT/$APP/$REVISION export -a $APP -u $APP -p $PORT upstart /etc/init
-    start $APP
-    nube_$TYPE up $APP $VHOST_ROOT/$APP/$REVISION
+    #TODO: call up on modules
+    if [ -f $VHOST_ROOT/$APP/$REVISION/Procfile ]; then
+        mkdir -p $VHOST_ROOT/$APP/upstart
+        PORT=$(get_random_port)
+        honcho -f $VHOST_ROOT/$APP/$REVISION/Procfile -d $VHOST_ROOT/$APP/$REVISION export -a $APP -u $APP -p $PORT upstart $VHOST_ROOT/$APP/upstart
+        cp $VHOST_ROOT/$APP/upstart/* /etc/init
+        start $APP
+    fi
+    nube_$TYPE up $APP $VHOST_ROOT/$APP/$REVISION > /etc/nginx/sites-available/$APP
+    ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
+    /etc/init.d/nginx reload
     if [ ! -z "$OLD_REVISION" ]; then
         rm -rf $VHOST_ROOT/$APP/$OLD_REVISION
     fi
     echo "-----> $APP is now online!"
-    echo "         http://$APP.$HOSTNAME"
     ;;
 
   --help)

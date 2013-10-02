@@ -22,7 +22,7 @@ function nube_python {
             if [ -z "$SERVER_NAME" ]; then
                 SERVER_NAME=_
             fi
-            cat << EOF > /etc/nginx/sites-available/$APP
+            cat << EOF
 server {
     listen 80;
     server_name $SERVER_NAME;
@@ -38,8 +38,6 @@ server {
     }
 }
 EOF
-            ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
-            /etc/init.d/nginx reload
             ;;
         down)
             ;;
