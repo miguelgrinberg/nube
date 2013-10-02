@@ -245,8 +245,10 @@ EOF
             rm /etc/init/$(basename $FILE)
         done
     fi
-    if [ -f $VHOST_ROOT/$APP/.env ]; then
-        source $VHOST_ROOT/$APP/.env
+    touch $VHOST_ROOT/$APP/.env
+    cp $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/$REVISION/.env
+    if [ -f $VHOST_ROOT/$APP/$REVISION/.env ]; then
+        source $VHOST_ROOT/$APP/$REVISION/.env
     fi
     #TODO: call up on modules
     if [ -f $VHOST_ROOT/$APP/$REVISION/Procfile ]; then

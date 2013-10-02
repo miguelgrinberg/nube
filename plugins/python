@@ -15,17 +15,19 @@ function nube_python {
             APP_ROOT=$3
             virtualenv $APP_ROOT/venv
             $APP_ROOT/venv/bin/pip install -r $APP_ROOT/requirements.txt
+            echo PATH=$APP_ROOT/venv/bin:$PATH >> $APP_ROOT/.env
             ;;
         up)
             APP=$2
             APP_ROOT=$3
-            if [ -z "$SERVER_NAME" ]; then
-                SERVER_NAME=_
+            if [ -z "$NUBE_SERVER_NAME" ]; then
+                NUBE_SERVER_NAME=_
             fi
             cat << EOF
 server {
     listen 80;
-    server_name $SERVER_NAME;
+    server_name $NUBE_SERVER_NAME;
+    root $APP_ROOT/$NUBE_ROOT;
     access_log /var/log/nginx/$APP.access.log;
     error_log /var/log/nginx/$APP.error.log;
     location /static/ {
