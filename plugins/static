@@ -2,12 +2,15 @@ function nube_static {
     case "$1" in
         install)
             ;;
+
         detect)
             echo default
             ;;
+
         build)
             ;;
-        up)
+
+        deploy)
             APP=$2
             APP_ROOT=$3
             if [ -z "$SERVER_NAME" ]; then
@@ -36,7 +39,8 @@ EOF
             ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
             /etc/init.d/nginx reload
             ;;
-        down)
+
+        destroy)
             ;;
     esac
 }

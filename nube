@@ -172,7 +172,10 @@ EOF
             rm /etc/init/$(basename $FILE)
         done
     fi
-    #TODO: call down on modules
+    source $VHOST_ROOT/$APP/$REVISION/.env
+    for ADDON in $NUBE_ADDONS; do
+        nube_$ADDON destroy $APP $VHOST_ROOT/$APP/$REVISION
+    done
     rm -rf $VHOST_ROOT/$APP
     userdel $APP
     ;;
@@ -245,12 +248,12 @@ EOF
             rm /etc/init/$(basename $FILE)
         done
     fi
-    touch $VHOST_ROOT/$APP/.env
-    cp $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/$REVISION/.env
-    if [ -f $VHOST_ROOT/$APP/$REVISION/.env ]; then
-        source $VHOST_ROOT/$APP/$REVISION/.env
-    fi
-    #TODO: call up on modules
+    touch $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/$REVISION/.env
+    cat $VHOST_ROOT/$APP/.env  >> $VHOST_ROOT/$APP/$REVISION/.env
+    source $VHOST_ROOT/$APP/$REVISION/.env
+    for ADDON in $NUBE_ADDONS; do
+        nube_$ADDON deploy $APP $VHOST_ROOT/$APP/$REVISION
+    done
     if [ -f $VHOST_ROOT/$APP/$REVISION/Procfile ]; then
         mkdir -p $VHOST_ROOT/$APP/upstart
         PORT=$(get_random_port)
@@ -258,7 +261,7 @@ EOF
         cp $VHOST_ROOT/$APP/upstart/* /etc/init
         start $APP
     fi
-    nube_$TYPE up $APP $VHOST_ROOT/$APP/$REVISION > /etc/nginx/sites-available/$APP
+    nube_$TYPE deploy $APP $VHOST_ROOT/$APP/$REVISION > /etc/nginx/sites-available/$APP
     ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
     /etc/init.d/nginx reload
     if [ ! -z "$OLD_REVISION" ]; then
