@@ -23,28 +23,19 @@ function nube_python {
         deploy)
             APP=$2
             APP_ROOT=$3
-            if [ -z "$NUBE_SERVER_NAME" ]; then
-                NUBE_SERVER_NAME=_
-            fi
             if [ -z "$NUBE_PYTHON_LOCATION" ]; then
                 NUBE_PYTHON_LOCATION=/
             fi
             if [ -z "$NUBE_PYTHON_PROTOCOL" ]; then
                 NUBE_PYTHON_PROTOCOL=uwsgi
             fi
-            cat << EOF
-server {
-    listen 80;
-    server_name $NUBE_SERVER_NAME;
-    access_log /var/log/nginx/$APP.access.log;
-    error_log /var/log/nginx/$APP.error.log;
-$NUBE_NGINX_FILES
+            NUBE_NGINX_LOCATION=`cat << EOF
     location $NUBE_PYTHON_LOCATION {
         include ${NUBE_PYTHON_PROTOCOL}_params;
         ${NUBE_PYTHON_PROTOCOL}_pass 127.0.0.1:$PORT;
     }
-}
 EOF
+`
             ;;
 
         destroy)

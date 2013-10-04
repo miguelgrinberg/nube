@@ -50,7 +50,8 @@ case "$1" in
     apt-get -y install python-pip python-dev
     
     # honcho (Procfile handler)
-    pip install honcho 
+    #pip install honcho 
+    pip install https://github.com/miguelgrinberg/honcho/zipball/master
     
     # install plugins
     shift
@@ -134,13 +135,17 @@ EOF
   set)
     APP=$2
     VAR=$3
-    shift
-    shift
-    shift
-    VALUE=$@
-    echo "-----> Setting $VAR in $APP ..."
-    sudo-nube __set $APP $VAR $VALUE
-    echo "-----> Success!"
+    if [ -z "$VAR" ]; then
+        cat $VHOST_ROOT/$APP/.env
+    else
+        shift
+        shift
+        shift
+        VALUE=$@
+        echo "-----> Setting $VAR in $APP ..."
+        sudo-nube __set $APP $VAR $VALUE
+        echo "-----> Success!"
+    fi
     ;;
 
   unset)
@@ -180,6 +185,7 @@ EOF
     for ADDON in $NUBE_ADDONS; do
         nube_$ADDON destroy $APP $VHOST_ROOT/$APP/$REVISION
     done
+    nube_$NUBE_TYPE destroy $APP $VHOST_ROOT/$APP/$REVISION
     rm -rf $VHOST_ROOT/$APP
     userdel $APP
     ;;
@@ -187,19 +193,15 @@ EOF
   __set)
     APP=$2
     VAR=$3
-    echo $4
     shift
     shift
     shift
     VALUE=$@
+    touch $VHOST_ROOT/$APP/.env
     mv $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/.tmp.env
-    grep -v $VAR= $VHOST_ROOT/$APP/.tmp.env > $VHOST_ROOT/$APP/.env
+    grep -v $VAR= $VHOST_ROOT/$APP/.tmp.env > $VHOST_ROOT/$APP/.env || true
     rm $VHOST_ROOT/$APP/.tmp.env
-    if [ -z "$VAR" ]; then
-        cat $VHOST_ROOT/$APP/.env
-    else
-        echo "$VAR=\"$VALUE\"" >> $VHOST_ROOT/$APP/.env
-    fi
+    echo "$VAR=\"$VALUE\"" >> $VHOST_ROOT/$APP/.env
     ;;
     
   __unset)
@@ -239,7 +241,7 @@ EOF
         PLUGIN=$(basename $FILE)
         D=`nube_$PLUGIN detect $APP $VHOST_ROOT/$APP/$REVISION`
         if [ "$D" == "yes" ]; then
-            TYPE=$PLUGIN
+            NUBE_TYPE=$PLUGIN
             break
         else
             if [ "$D" == "default" ]; then
@@ -247,12 +249,13 @@ EOF
             fi
         fi
     done
-    if [ -z "$TYPE" ]; then
-        TYPE=$DEFAULT_TYPE
+    if [ -z "$NUBE_TYPE" ]; then
+        NUBE_TYPE=$DEFAULT_TYPE
     fi
-    echo Type is $TYPE
+    echo Type is $NUBE_TYPE
+    echo "NUBE_TYPE=$NUBE_TYPE" >> $VHOST_ROOT/$APP/.env
     echo "-----> Building $APP ..."
-    nube_$TYPE build $APP $VHOST_ROOT/$APP/$REVISION
+    nube_$NUBE_TYPE build $APP $VHOST_ROOT/$APP/$REVISION
     echo "-----> Launching $APP ..."
     stop $APP || true
     if [ -d $VHOST_ROOT/$APP/upstart ]; then
@@ -273,7 +276,31 @@ EOF
         cp $VHOST_ROOT/$APP/upstart/* /etc/init
         start $APP
     fi
-    nube_$TYPE deploy $APP $VHOST_ROOT/$APP/$REVISION > /etc/nginx/sites-available/$APP
+    nube_$NUBE_TYPE deploy $APP $VHOST_ROOT/$APP/$REVISION
+    if [ -z "$NUBE_SERVER_NAME" ]; then
+        NUBE_SERVER_NAME=_
+    fi
+    mkdir -p /var/log/$APP
+    cat << EOF > /etc/nginx/sites-enabled/$APP
+server {
+    listen 80;
+    server_name $NUBE_SERVER_NAME;
+    access_log /var/log/$APP/access.log;
+    error_log /var/log/$APP/error.log;
+$NUBE_NGINX_FILES
+$NUBE_NGINX_LOCATION
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    location ~ /Procfile {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+}
+EOF
     ln -s -f /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP
     /etc/init.d/nginx reload
     if [ ! -z "$OLD_REVISION" ]; then
