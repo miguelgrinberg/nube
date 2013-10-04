@@ -1,0 +1,39 @@
+function nube_files {
+    case "$1" in
+        install)
+            ;;
+
+        detect)
+            ;;
+
+        build)
+            ;;
+
+        deploy)
+            APP=$2
+            APP_ROOT=$3
+            _LOC=
+            _ALIAS=
+            for ARG in $NUBE_FILES; do
+                if [ -z $_LOC ]; then
+                    _LOC=$ARG
+                else
+                    _ALIAS=$ARG
+                    NUBE_NGINX_FILES="$NUBE_NGINX_FILES `cat << EOF
+
+    location $_LOC {
+        alias ${APP_ROOT}$_ALIAS;
+        expires 30d;
+    }
+EOF
+`"
+                _LOC=
+                _ALIAS=
+                fi
+            done
+            ;;
+
+        destroy)
+            ;;
+    esac
+}

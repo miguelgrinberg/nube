@@ -134,8 +134,12 @@ EOF
   set)
     APP=$2
     VAR=$3
+    shift
+    shift
+    shift
+    VALUE=$@
     echo "-----> Setting $VAR in $APP ..."
-    sudo-nube __set $APP "$VAR"
+    sudo-nube __set $APP $VAR $VALUE
     echo "-----> Success!"
     ;;
 
@@ -183,10 +187,18 @@ EOF
   __set)
     APP=$2
     VAR=$3
+    echo $4
+    shift
+    shift
+    shift
+    VALUE=$@
+    mv $VHOST_ROOT/$APP/.env $VHOST_ROOT/$APP/.tmp.env
+    grep -v $VAR= $VHOST_ROOT/$APP/.tmp.env > $VHOST_ROOT/$APP/.env
+    rm $VHOST_ROOT/$APP/.tmp.env
     if [ -z "$VAR" ]; then
         cat $VHOST_ROOT/$APP/.env
     else
-        echo $VAR >> $VHOST_ROOT/$APP/.env
+        echo "$VAR=\"$VALUE\"" >> $VHOST_ROOT/$APP/.env
     fi
     ;;
     
