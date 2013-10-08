@@ -1,0 +1,17 @@
+function nube_data {
+    case "$1" in
+        install)
+            ;;
+
+        deploy)
+            APP=$2
+            APP_ROOT=$3
+            mkdir -p $VHOST_ROOT/$APP/data
+            chown $APP:$APP $VHOST_ROOT/$APP/data
+            echo "DATA_PATH=$VHOST_ROOT/$APP/data" >> $APP_ROOT/.env
+            ;;
+
+        destroy)
+            ;;
+    esac
+}

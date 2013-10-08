@@ -3,12 +3,6 @@ function nube_files {
         install)
             ;;
 
-        detect)
-            ;;
-
-        build)
-            ;;
-
         deploy)
             APP=$2
             APP_ROOT=$3

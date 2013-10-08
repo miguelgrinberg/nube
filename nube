@@ -173,8 +173,6 @@ EOF
   __create)
     APP=$2
     /usr/sbin/useradd $APP
-    mkdir -p $VHOST_ROOT/$APP/data
-    chown $APP:$APP $VHOST_ROOT/$APP/data
     ;;
 
   __destroy)
@@ -295,6 +293,7 @@ EOF
     for ADDON in $NUBE_ADDONS; do
         nube_$ADDON deploy $APP $VHOST_ROOT/$APP/$REVISION
     done
+    source $VHOST_ROOT/$APP/$REVISION/.env
 
     # install Procfile
     if [ -f $VHOST_ROOT/$APP/$REVISION/Procfile ]; then
@@ -316,7 +315,7 @@ EOF
         su -c "cd $VHOST_ROOT/$APP/$REVISION && $NUBE_HOOK_POST_DEPLOY" $APP
     fi
 
-    # deploy app on nginx
+    # deploy front facing virtual host on nginx
     nube_$NUBE_TYPE deploy $APP $VHOST_ROOT/$APP/$REVISION
     if [ -z "$NUBE_SERVER_NAME" ]; then
         NUBE_SERVER_NAME=_
