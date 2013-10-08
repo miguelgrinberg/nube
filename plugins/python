@@ -1,7 +1,8 @@
 function nube_python {
     case "$1" in
         install)
-            apt-get -y install python python-dev python-virtualenv
+            apt-get -y install python python-dev python-pip python-virtualenv
+            pip install uwsgi
             ;;
 
         detect)

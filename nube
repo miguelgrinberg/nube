@@ -286,7 +286,7 @@ EOF
 
     # pre-deploy hook
     if [ ! -z "$NUBE_HOOK_PRE_DEPLOY" ]; then
-        su -c "cd $VHOST_ROOT/$APP/$REVISION && $NUBE_HOOK_PRE_DEPLOY" $APP
+        su -p -c "cd $VHOST_ROOT/$APP/$REVISION && $NUBE_HOOK_PRE_DEPLOY" $APP
     fi
 
     # run add-ons
@@ -312,7 +312,7 @@ EOF
 
     # post-deploy hook
     if [ ! -z "$NUBE_HOOK_POST_DEPLOY" ]; then
-        su -c "cd $VHOST_ROOT/$APP/$REVISION && $NUBE_HOOK_POST_DEPLOY" $APP
+        su -p -c "cd $VHOST_ROOT/$APP/$REVISION && $NUBE_HOOK_POST_DEPLOY" $APP
     fi
 
     # deploy front facing virtual host on nginx
