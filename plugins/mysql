@@ -1,0 +1,34 @@
+function nube_mysql {
+    case "$1" in
+        install)
+            PW=`get_random_password`
+            echo mysql-server mysql-server/root_password select $PW | sudo debconf-set-selections
+            echo mysql-server mysql-server/root_password_again select $PW | sudo debconf-set-selections
+            apt-get -y install mysql-server mysql-client
+            echo "MYSQL_PW=$PW" > $VHOST_ROOT/mysql
+            ;;
+
+        deploy)
+            APP=$2
+            APP_ROOT=$3
+            if [ ! -f $VHOST_ROOT/$APP/mysql.env ]; then
+                source $VHOST_ROOT/mysql
+                PW=`get_random_password`
+                echo "DATABASE_URL=mysql://nube_$APP:$PW@localhost/nube_APP" > $VHOST_ROOT/$APP/mysql.env
+                echo "CREATE DATABASE nube_$APP;" | mysql --user=root --password=$MYSQL_PW
+                echo "CREATE USER 'nube_$APP'@'localhost' IDENTIFIED BY '$PW';" | mysql --user=root --password=$MYSQL_PW 
+                echo "GRANT ALL PRIVILEGES ON nube_$APP.* TO 'nube_$APP'@'localhost';" | mysql --user=root --password=$MYSQL_PW
+            fi
+            cat $VHOST_ROOT/$APP/mysql.env >> $APP_ROOT/.env
+            ;;
+
+        destroy)
+            APP=$2
+            APP_ROOT=$3
+            source $VHOST_ROOT/mysql
+            echo "DROP USER 'nube_$APP'@'localhost';" | mysql --user=root --password=$MYSQL_PW
+            echo "DROP DATABASE nube_$APP;" | mysql --user=root --password=$MYSQL_PW
+            rm $VHOST_ROOT/$APP/mysql.env
+            ;;
+    esac
+}

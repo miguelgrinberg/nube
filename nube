@@ -25,6 +25,10 @@ get_random_port() {
     echo $port
 }
 
+get_random_password() {
+    tr -dc A-Za-z0-9_ < /dev/urandom | head -c16
+}
+
 case "$1" in
   install)
     echo "-----> Installing dependencies ..."
@@ -190,8 +194,10 @@ EOF
     if [ -f $VHOST_ROOT/$APP/$REVISION/.env ]; then
         source $VHOST_ROOT/$APP/$REVISION/.env
         for ADDON in $NUBE_ADDONS; do
+            source /usr/local/share/nube/plugins/$ADDON
             nube_$ADDON destroy $APP $VHOST_ROOT/$APP/$REVISION
         done
+        source /usr/local/share/nube/plugins/$NUBE_TYPE
         nube_$NUBE_TYPE destroy $APP $VHOST_ROOT/$APP/$REVISION
     fi
     rm -rf $VHOST_ROOT/$APP
