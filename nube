@@ -6,9 +6,10 @@ VHOST_ROOT=/var/www
 usage() {
     echo "Usage: sudo nube install          Install nube"
     echo "       nube upload-key            Register public SSH key (key is read from stdin)"
+    echo "       nube install-plugin PLUGIN Install PLUGIN"
     echo "       nube create APPNAME        Create application APPNAME"
     echo "       nube destroy APPNAME       Delete application APPNAME"
-    echo "       nube set APPNAME VAR=VALUE Add an environment variable to APPNAME"
+    echo "       nube set APPNAME VAR VALUE Add an environment variable to APPNAME"
     echo "       nube unset APPNAME VAR     Remove an environment variable from APPNAME"
     echo "       nube up APPNAME            Start application APPNAME"
     echo "       nube down APPNAME          Stop application APPNAME"
@@ -62,20 +63,10 @@ case "$1" in
     pip install honcho 
     #pip install https://github.com/miguelgrinberg/honcho/zipball/master
     
-    # install plugins
-    shift
-    PLUGINS=
-    for PLUGIN in $@; do
-        echo "-----> Installing $PLUGIN plugin ..."
-        if [ ! -f $DIRNAME/plugins/$PLUGIN ]; then
-            echo Plugin $PLUGIN not found, skipping > /dev/stderr
-        else
-            source $DIRNAME/plugins/$PLUGIN
-            nube_$PLUGIN install
-            PLUGINS="$PLUGINS $PLUGIN"
-        fi
-    done
-    PLUGINS="$PLUGINS static"
+    # install static addon
+    echo "-----> Installing static plugin ..."
+    source $DIRNAME/plugins/static
+    nube_static install
 
     echo "-----> Creating a root directory for virtual hosts ..."
     mkdir -p $VHOST_ROOT
@@ -108,9 +99,8 @@ EOF
     chown root:nube /usr/local/bin/sudo-nube /usr/local/bin/nube
     chmod 4754 /usr/local/bin/sudo-nube /usr/local/bin/nube
     mkdir -p /usr/local/share/nube/plugins
-    for PLUGIN in $PLUGINS; do
-        cp $DIRNAME/plugins/$PLUGIN /usr/local/share/nube/plugins
-    done
+    cp $DIRNAME/plugins/* /usr/local/share/nube/plugins
+
     echo "-----> Success!"
     echo "       Please upload your public key:"
     echo "         cat ~/.ssh/id_rsa.pub | ssh $USER@$HOSTNAME \"sudo nube upload-key\""
@@ -122,6 +112,12 @@ EOF
     echo "-----> Success!"
     echo "       To issue commands without a password:"
     echo "         ssh nube@$HOSTNAME \"nube <cmd> <arg> ...\""
+    ;;
+
+  install-plugin)
+    shift
+    sudo-nube __install-plugin $@
+    echo "-----> Success!"
     ;;
 
   create)
@@ -174,9 +170,23 @@ EOF
     echo $KEY > /home/nube/.ssh/authorized_keys
     ;;
 
+  __install-plugin)
+    shift
+    for PLUGIN in $@; do
+        echo "-----> Installing $PLUGIN plugin ..."
+        if [ ! -f /usr/local/share/nube/plugins/$PLUGIN ]; then
+            echo Plugin $PLUGIN not found, skipping > /dev/stderr
+        else
+            source /usr/local/share/nube/plugins/$PLUGIN
+            nube_$PLUGIN install
+        fi
+    done
+    ;;
+
   __create)
     APP=$2
     /usr/sbin/useradd $APP
+    mkdir $VHOST_ROOT/$APP
     ;;
 
   __destroy)
