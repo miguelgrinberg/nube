@@ -3,6 +3,19 @@ function nube_files {
         install)
             ;;
 
+        installed)
+            echo "yes"
+            ;;
+
+        description)
+            echo "Configure nginx to serve static files"
+            echo ""
+            echo "Input:"
+            echo "  NUBE_FILES=\"<location> <alias> [<location2> <alias2> ...]\""
+            echo "Output:"
+            echo "  None"
+            ;;
+
         deploy)
             APP=$2
             APP_ROOT=$3

@@ -3,8 +3,21 @@ function nube_static {
         install)
             ;;
 
+        installed)
+            echo "yes"
+            ;;
+
+        description)
+            echo "Deploy a static website"
+            echo ""
+            echo "Input:"
+            echo "  None"
+            echo "Output:"
+            echo "  None"
+            ;;
+
         detect)
-            echo default
+            echo "default"
             ;;
 
         build)

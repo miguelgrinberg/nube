@@ -1,11 +1,31 @@
 function nube_mysql {
     case "$1" in
         install)
+            dpkg-query -l mysql-server
+            if [ $? == 0 ]; then
+                echo "MySQL is already installed. Please uninstall it and try again." > /dev/stderr
+                exit 1
+            fi
             PW=`get_random_password`
             echo mysql-server mysql-server/root_password select $PW | sudo debconf-set-selections
             echo mysql-server mysql-server/root_password_again select $PW | sudo debconf-set-selections
             apt-get -y install mysql-server mysql-client
             echo "MYSQL_PW=$PW" > $VHOST_ROOT/mysql
+            ;;
+
+        installed)
+            if [ ! -f $VHOST_ROOT/mysql ]; then
+                echo "yes"
+            fi
+            ;;
+
+        description)
+            echo "Allocate a MySQL database for the application"
+            echo ""
+            echo "Input:"
+            echo "  None"
+            echo "Output:"
+            echo "  DATABASE_URL"
             ;;
 
         deploy)

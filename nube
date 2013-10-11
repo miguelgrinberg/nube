@@ -7,6 +7,7 @@ usage() {
     echo "Usage: sudo nube install          Install nube"
     echo "       nube upload-key            Register public SSH key (key is read from stdin)"
     echo "       nube install-plugin PLUGIN Install PLUGIN"
+    echo "       nube plugin-info PLUGIN    Show usage information about PLUGIN"
     echo "       nube create APPNAME        Create application APPNAME"
     echo "       nube destroy APPNAME       Delete application APPNAME"
     echo "       nube set APPNAME VAR VALUE Add an environment variable to APPNAME"
@@ -118,6 +119,19 @@ EOF
     shift
     sudo-nube __install-plugin $@
     echo "-----> Success!"
+    ;;
+
+  plugin-info)
+    shift
+    for PLUGIN in $@; do
+        if [ -f /usr/local/share/nube/plugins/$PLUGIN ]; then
+            source /usr/local/share/nube/plugins/$PLUGIN
+        fi
+        if [ -f plugins/$PLUGIN ]; then
+            source plugins/$PLUGIN
+        fi
+        nube_$PLUGIN description
+    done
     ;;
 
   create)

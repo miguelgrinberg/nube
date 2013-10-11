@@ -3,6 +3,19 @@ function nube_data {
         install)
             ;;
 
+        installed)
+            echo "yes"
+            ;;
+
+        description)
+            echo "Allocate a permanent data space for the application"
+            echo ""
+            echo "Input:"
+            echo "  None"
+            echo "Output:"
+            echo "  DATA_PATH"
+            ;;
+
         deploy)
             APP=$2
             APP_ROOT=$3

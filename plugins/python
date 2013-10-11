@@ -5,11 +5,31 @@ function nube_python {
             pip install uwsgi
             ;;
 
+        installed)
+            which virtualenv
+            if [ $? == 0 ]; then
+                which uwsgi
+                if [ $? == 0 ]; then
+                    echo "yes"
+                fi
+            fi
+            ;;
+
+        description)
+            echo "Deploy Python applications"
+            echo ""
+            echo "Input:"
+            echo "  NUBE_PYTHON_LOCATION (default \"/\")"
+            echo "  NUBE_PYTHON_PROTOCOL (default \"uwsgi\")"
+            echo "Output:"
+            echo "  PORT"
+            ;;
+
         detect)
             APP=$2
             APP_ROOT=$3
             if [ -f $APP_ROOT/requirements.txt ]; then
-                echo yes
+                echo "yes"
             fi
             ;;
 
@@ -18,6 +38,7 @@ function nube_python {
             APP_ROOT=$3
             virtualenv $APP_ROOT/venv
             $APP_ROOT/venv/bin/pip install -r $APP_ROOT/requirements.txt
+            echo UWSGI_VIRTUALENV=venv >> $APP_ROOT/.env
             echo PATH=$APP_ROOT/venv/bin:$PATH >> $APP_ROOT/.env
             ;;
 
