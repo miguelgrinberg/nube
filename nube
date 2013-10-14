@@ -6,7 +6,7 @@ VHOST_ROOT=/var/www
 usage() {
     echo "Usage: sudo nube install          Install nube"
     echo "       nube upload-key            Register public SSH key (key is read from stdin)"
-    echo "       nube install-plugin PLUGIN Install PLUGIN"
+    echo "       nube install-plugin URL    Download and install plugin from URL"
     echo "       nube plugin-info PLUGIN    Show usage information about PLUGIN"
     echo "       nube create APPNAME        Create application APPNAME"
     echo "       nube destroy APPNAME       Delete application APPNAME"
@@ -188,12 +188,9 @@ EOF
     shift
     for PLUGIN in $@; do
         echo "-----> Installing $PLUGIN plugin ..."
-        if [ ! -f /usr/local/share/nube/plugins/$PLUGIN ]; then
-            echo Plugin $PLUGIN not found, skipping > /dev/stderr
-        else
-            source /usr/local/share/nube/plugins/$PLUGIN
-            nube_$PLUGIN install
-        fi
+        wget $PLUGIN
+        mv ${PLUGIN##*/} /usr/local/share/nube/plugins/
+        echo "-----> Success!"
     done
     ;;
 
@@ -295,6 +292,12 @@ EOF
     echo Type is $NUBE_TYPE
     echo "NUBE_TYPE=$NUBE_TYPE" >> $VHOST_ROOT/$APP/.env
 
+    INSTALLED=`nube_$NUBE_TYPE installed`
+    if [ "$INSTALLED" != "yes" ]; then
+        echo "-----> Installing $NUBE_TYPE plugin ..."
+        nube_$NUBE_TYPE install
+    fi
+
     echo "-----> Building $APP ..."
     nube_$NUBE_TYPE build $APP $VHOST_ROOT/$APP/$REVISION
 
@@ -321,6 +324,12 @@ EOF
 
     # run add-ons
     for ADDON in $NUBE_ADDONS; do
+        source /usr/local/share/nube/plugins/$ADDON
+        INSTALLED=`nube_$ADDON installed`
+        if [ "$INSTALLED" != "yes" ]; then
+            echo "-----> Installing $ADDON plugin ..."
+            nube_$ADDON install
+        fi
         nube_$ADDON deploy $APP $VHOST_ROOT/$APP/$REVISION
     done
     source $VHOST_ROOT/$APP/$REVISION/.env
