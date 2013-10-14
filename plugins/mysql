@@ -1,8 +1,8 @@
 function nube_mysql {
     case "$1" in
         install)
-            dpkg-query -l mysql-server
-            if [ $? == 0 ]; then
+            (dpkg-query -l mysql-server ; R=$?) || true
+            if [ "$R" == "0" ]; then
                 echo "MySQL is already installed. Please uninstall it and try again." > /dev/stderr
                 exit 1
             fi
@@ -14,7 +14,7 @@ function nube_mysql {
             ;;
 
         installed)
-            if [ ! -f $VHOST_ROOT/mysql ]; then
+            if [ -f $VHOST_ROOT/mysql ]; then
                 echo "yes"
             fi
             ;;
@@ -34,7 +34,7 @@ function nube_mysql {
             if [ ! -f $VHOST_ROOT/$APP/mysql.env ]; then
                 source $VHOST_ROOT/mysql
                 PW=`get_random_password`
-                echo "DATABASE_URL=mysql://nube_$APP:$PW@localhost/nube_APP" > $VHOST_ROOT/$APP/mysql.env
+                echo "DATABASE_URL=mysql://nube_$APP:$PW@localhost/nube_$APP" > $VHOST_ROOT/$APP/mysql.env
                 echo "CREATE DATABASE nube_$APP;" | mysql --user=root --password=$MYSQL_PW
                 echo "CREATE USER 'nube_$APP'@'localhost' IDENTIFIED BY '$PW';" | mysql --user=root --password=$MYSQL_PW 
                 echo "GRANT ALL PRIVILEGES ON nube_$APP.* TO 'nube_$APP'@'localhost';" | mysql --user=root --password=$MYSQL_PW
