@@ -12,6 +12,7 @@ usage() {
     echo "       nube destroy APPNAME       Delete application APPNAME"
     echo "       nube set APPNAME VAR VALUE Add an environment variable to APPNAME"
     echo "       nube unset APPNAME VAR     Remove an environment variable from APPNAME"
+    echo "       nube run APPNAME CMD       Run command in the context of APPNAME"
     echo "       nube up APPNAME            Start application APPNAME"
     echo "       nube down APPNAME          Stop application APPNAME"
 }
@@ -178,6 +179,11 @@ EOF
     echo "-----> Success!"
     ;;
     
+  run)
+    shift
+    sudo-nube __run $@
+    ;;
+
   # private options from here on, for internal use only!
 
   __upload-key)
@@ -249,6 +255,27 @@ EOF
     rm $VHOST_ROOT/$APP/.tmp.env
     ;;
     
+  __run)
+    APP=$2
+    shift
+    shift
+    CMD=$@
+    REVISION=
+    for FILE in $VHOST_ROOT/$APP/rev-*; do
+        if [ -d $FILE ]; then
+            REVISION=$(basename $FILE)
+            break
+        fi
+    done
+    if [ -z "$REVISION" ]; then
+        echo "Application is not running"
+        exit 1
+    fi
+    source $VHOST_ROOT/$APP/$REVISION/.env
+    echo $DATABASE_URL
+    su -p -c "cd $VHOST_ROOT/$APP/$REVISION; $CMD" $APP
+    ;;
+
   __receive)
     APP=$2
     REVISION=rev-$3
