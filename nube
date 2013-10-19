@@ -206,6 +206,9 @@ EOF
     APP=$2
     /usr/sbin/useradd $APP
     mkdir $VHOST_ROOT/$APP
+    touch $VHOST_ROOT/$APP/.env
+    chown $APP:$APP $VHOST_ROOT/$APP/.env
+    chmod 0640 $VHOST_ROOT/$APP/.env
     ;;
 
   __destroy)
@@ -214,8 +217,8 @@ EOF
     /etc/init.d/nginx reload
     supervisorctl stop $APP || true
     #stop $APP || true
-    if [ -d $VHOST_ROOT/$APP/upstart ]; then
-        for FILE in $VHOST_ROOT/$APP/upstart/*; do
+    if [ -d $VHOST_ROOT/$APP/monitor ]; then
+        for FILE in $VHOST_ROOT/$APP/monitor/*; do
             rm /etc/supervisor/conf.d/$(basename $FILE) || true
             #rm /etc/init/$(basename $FILE)
         done
@@ -298,7 +301,9 @@ EOF
     rm -rf $VHOST_ROOT/$APP/$REVISION
     mkdir -p $VHOST_ROOT/$APP/$REVISION
     cat | tar -x -C $VHOST_ROOT/$APP/$REVISION
+    touch $VHOST_ROOT/$APP/$REVISION/.env
     chown -R $APP:$APP $VHOST_ROOT/$APP/$REVISION
+    chmod -R o-rwx $VHOST_ROOT/$APP/$REVISION
 
     echo "-----> Detecting type of $APP ..."
     TYPE=
