@@ -215,7 +215,7 @@ EOF
     APP=$2
     rm /etc/nginx/sites-available/$APP /etc/nginx/sites-enabled/$APP || true
     /etc/init.d/nginx reload
-    supervisorctl stop $APP || true
+    supervisorctl stop "$APP:*" || true
     #stop $APP || true
     if [ -d $VHOST_ROOT/$APP/monitor ]; then
         for FILE in $VHOST_ROOT/$APP/monitor/*; do
@@ -337,7 +337,7 @@ EOF
 
     echo "-----> Deploying $APP ..."
     # stop previous version of the app
-    supervisorctl stop $APP || true
+    supervisorctl stop "$APP:*" || true
     #stop $APP || true
     if [ -d $VHOST_ROOT/$APP/monitor ]; then
         for FILE in $VHOST_ROOT/$APP/monitor/*; do
